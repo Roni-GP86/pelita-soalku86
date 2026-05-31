@@ -239,6 +239,7 @@ export default function App() {
   const [isSubmittingWa, setIsSubmittingWa] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [warningToast, setWarningToast] = useState<string | null>(null);
+  const [firestoreSyncError, setFirestoreSyncError] = useState<string | null>(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(false);
   const [bankSoalFilterSubject, setBankSoalFilterSubject] = useState<string>("Semua");
   const [bankSoalRefreshTrigger, setBankSoalRefreshTrigger] = useState<number>(0);
@@ -343,46 +344,20 @@ export default function App() {
         });
 
         setCodeRequests(list);
+        setFirestoreSyncError(null);
       },
       (error) => {
         console.error("Firestore real-time subscription error:", error);
+        setFirestoreSyncError(error.message || String(error));
       }
     );
     return () => unsubscribe();
   }, []);
 
-  // Real-time synchronization of Bank Soal with Firebase Firestore
+  // Local storage synchronization of Bank Soal for individual devices
   useEffect(() => {
-    const currentCode = activeCode ? activeCode.trim().toUpperCase() : "TRIAL";
-    const q = isAdmin
-      ? collection(db, "bankSoal")
-      : query(collection(db, "bankSoal"), where("ownerCode", "==", currentCode));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: any[] = [];
-        snapshot.forEach((doc) => {
-          list.push(doc.data());
-        });
-        
-        // Sort newest first
-        list.sort((a, b) => {
-          const idA = a.id && a.id.startsWith("bank_") ? Number(a.id.replace("bank_", "")) : 0;
-          const idB = b.id && b.id.startsWith("bank_") ? Number(b.id.replace("bank_", "")) : 0;
-          return idB - idA;
-        });
-
-        setBankSoalList(list);
-        localStorage.setItem("ttu_bank_soal", JSON.stringify(list));
-      },
-      (error) => {
-        console.warn("Firebase Bank Soal sync error/offline-mode:", error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [activeCode, isAdmin]);
+    localStorage.setItem("ttu_bank_soal", JSON.stringify(bankSoalList));
+  }, [bankSoalList]);
 
   useEffect(() => {
     localStorage.setItem("ttu_active_code", activeCode);
@@ -714,16 +689,7 @@ export default function App() {
       setHasSavedCurrentSoal(true);
       
       // Instant success toast feedback
-      setSuccessToast(`🎉 Sukses! Paket soal Mapel ${effectiveSelectedSubject} berhasil disimpan di Bank Soal secara permanen.`);
-
-      // 2. Perform Firestore cloud storage in the background without blocking the UI
-      setDoc(doc(db, "bankSoal", newBankId), newBankItem)
-        .then(() => {
-          console.log("Successfully backed up package to Cloud Bank Soal!");
-        })
-        .catch((firestoreErr) => {
-          console.warn("Gagal sinkronisasi cloud Firestore (offline mode). Paket soal Anda tetap aman disimpan secara lokal di perangkat ini.", firestoreErr);
-        });
+      setSuccessToast(`🎉 Sukses! Paket soal Mapel ${effectiveSelectedSubject} berhasil disimpan di Bank Soal lokal perangkat Anda.`);
 
     } catch (err: any) {
       console.error(err);
@@ -1255,6 +1221,63 @@ export default function App() {
         {/* Main Workspace Area */}
         <main className="flex-1 px-5 py-5 md:px-6 md:py-6 space-y-5 min-w-0 bg-slate-950/20 relative">
 
+          {/* FIREBASE SYNC ERROR DIAGNOSTIC PANEL */}
+          {firestoreSyncError && (
+            <div id="firebase-sync-alert" className="bg-gradient-to-r from-rose-950/85 via-slate-900/85 to-rose-950/85 border-2 border-rose-500/40 rounded-2xl p-5 shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="flex items-start gap-4 relative z-10">
+                <div className="w-11 h-11 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 text-xl animate-bounce">
+                  ⚠️
+                </div>
+                <div className="text-left space-y-2 flex-1">
+                  <span className="px-2.5 py-0.5 bg-rose-500/15 border border-rose-500/35 text-rose-400 text-[9px] font-black rounded-md uppercase tracking-wider block w-fit mb-1">
+                    KENDALA DATABASE CLOUD FIRESTORE TERDETEKSI
+                  </span>
+                  <h4 className="font-extrabold text-sm text-slate-100 uppercase tracking-tight">
+                    Sinkronisasi Data Bermasalah dengan Project Firebase Anda ({db.app.options.projectId || "roni-ps"})
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed font-semibold">
+                    Aplikasi mendeteksi bahwa perangkat tidak dapat melakukan sinkronisasi dengan Cloud Database Firestore Anda. Pesan/bukti transfer dari pengguna tidak akan terbaca di perangkat Admin, dan sebaliknya, sampai masalah Aturan Keamanan (Rules) diselesaikan di Console Firebase Anda.
+                  </p>
+                  
+                  <div className="bg-slate-950/80 p-4 rounded-xl border border-rose-500/20 space-y-2.5 text-[11.5px] leading-relaxed font-semibold text-slate-200">
+                    <p className="text-rose-400 font-extrabold">🚨 Detail Kesalahan:</p>
+                    <code className="block bg-slate-900 px-2.5 py-1.5 rounded text-[10px] font-mono text-rose-350 break-all select-all">
+                      {firestoreSyncError}
+                    </code>
+                    
+                    <p className="text-amber-400 font-bold mt-2">🛠️ Langkah Solusi (Sangat Mudah &amp; 100% Mengatasi Masalah):</p>
+                    <ol className="list-decimal pl-4 space-y-1.5 text-slate-300 font-medium">
+                      <li>Buka <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-black underline hover:text-blue-300">Firebase Console</a> Anda dan pilih project <strong className="text-white">{db.app.options.projectId || "roni-ps"}</strong>.</li>
+                      <li>Di menu kiri, klik <strong className="text-white">Build &gt; Firestore Database</strong>. Jika database belum dibuat, klik <strong className="text-white">Create Database</strong>, pilih lokasi server Asia terdekat (misal <strong className="text-white">asia-southeast1</strong>), lalu buat dengan mode default.</li>
+                      <li>Buka tab <strong className="text-white">Rules</strong> (Aturan Keamanan) di atas halaman Firestore Database.</li>
+                      <li>Hapus semua isi Aturan Keamanan default di sana, ganti sepenuhnya dengan copy-paste Aturan Keamanan resmi di bawah ini:</li>
+                    </ol>
+                    
+                    <div className="relative mt-2">
+                      <pre className="p-3 bg-slate-900 border border-slate-800 rounded-lg text-[9.5px] font-mono text-emerald-400 overflow-x-auto max-h-48 select-all">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                      </pre>
+                      <span className="absolute top-2 right-2 text-[8px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase pointer-events-none">Aturan Terbuka (Siap Pakai)</span>
+                    </div>
+                    
+                    <p className="text-slate-400 text-[10px] mt-2 font-medium">
+                      Setelah menempel aturan di atas di tab <strong className="text-white">Rules</strong>, jangan lupa klik tombol <strong className="text-emerald-400 font-extrabold">"Publish"</strong> di Firebase Console. Database Anda akan langsung aktif &amp; sinkronisasi multi-device otomatis berjalan seketika!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* LAPTOP INSTALLATION WARNING BANNER (PROGRESSIVE WEB APP) */}
           {!isInstalled && !isStandalone && !isInstallBannerDismissed && (
             <div className="bg-gradient-to-r from-indigo-950/95 via-slate-900/95 to-indigo-950/95 border-2 border-indigo-500/40 rounded-2xl p-4 md:p-5 shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 animate-pulse-subtle">
@@ -1575,16 +1598,13 @@ export default function App() {
                         ? bankItems 
                         : bankItems.filter((item: any) => item.subject === bankSoalFilterSubject);
 
-                      const handleDeleteItem = async (itemId: string, itemSubject: string, itemOwnerCode: string) => {
-                        const isGlobalDelete = isAdmin && itemOwnerCode !== activeCode;
-                        const confirmMsg = isGlobalDelete
-                          ? `⚠️ KENDALI ADMIN (GP-PSR86): Apakah Anda yakin ingin menghapus paket soal [${itemSubject}] milik Guru dengan kode [${itemOwnerCode || "TRIAL"}] secara GLOBAL? Paket ini akan dihapus selamanya dari penyimpanan cloud.`
-                          : `Apakah Anda yakin ingin menghapus paket soal ${itemSubject} ini dari Bank Soal?`;
+                      const handleDeleteItem = async (itemId: string, itemSubject: string) => {
+                        const confirmMsg = `Apakah Anda yakin ingin menghapus paket soal ${itemSubject} ini dari Bank Soal lokal Anda?`;
 
                         setAppConfirm({
                           isOpen: true,
                           title: "Hapus Paket Soal",
-                          subTitle: isGlobalDelete ? "KENDALI ADMIN GLOBAL" : "HAPUS DARI REPOSITORI BANK SOAL",
+                          subTitle: "HAPUS DARI REPOSITORI BANK SOAL",
                           message: confirmMsg,
                           confirmLabel: "Ya, Hapus Permanen",
                           cancelLabel: "Batal",
@@ -1600,17 +1620,7 @@ export default function App() {
                               return updated;
                             });
 
-                            setSuccessToast(isGlobalDelete 
-                              ? `🗑️ Sukses menghapus paket soal secara GLOBAL dari Cloud!`
-                              : `Sukses menghapus paket soal dari Bank Soal Anda.`
-                            );
-
-                            try {
-                              // Perform the Firestore delete operation in the background!
-                              await deleteDoc(doc(db, "bankSoal", itemId));
-                            } catch (err: any) {
-                              console.warn("Gagal hapus dari Firebase (offline).", err);
-                            }
+                            setSuccessToast(`Sukses menghapus paket soal dari Bank Soal Anda.`);
                           }
                         });
                       };
@@ -1743,7 +1753,7 @@ export default function App() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleDeleteItem(item.id, item.subject, item.ownerCode)}
+                                      onClick={() => handleDeleteItem(item.id, item.subject)}
                                       className="p-2 bg-rose-950/20 hover:bg-rose-950 border border-rose-950 hover:border-rose-800 text-rose-400 font-black text-xs rounded-xl transition-all cursor-pointer active:scale-97 duration-200"
                                       title="Hapus paket ini dari Bank Soal"
                                     >
