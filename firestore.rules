@@ -64,6 +64,10 @@ service cloud.firestore {
       allow delete: if true; // Allow admin deletion or resets
     }
 
+    match /Permintaan kode/{requestId} {
+      allow read, write: if true;
+    }
+
     match /bankSoal/{bankId} {
       allow get: if isValidId(bankId);
       allow list: if true;

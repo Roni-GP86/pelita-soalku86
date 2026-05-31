@@ -80,6 +80,103 @@ function compressImageFile(file: File, maxDimension = 800, quality = 0.75): Prom
   });
 }
 
+/**
+ * Normalizes activation codes (replaces digit 0 with letter O, to prevent typos).
+ */
+export function normalizeCode(code: string): string {
+  if (!code) return "";
+  return code.trim().toUpperCase().replace(/0/g, "O");
+}
+
+/**
+ * Parses dynamic Indonesian or English document formats from Firestore.
+ */
+export function parseFirestoreDoc(docId: string, data: any): any {
+  if (!data) return null;
+
+  // 1. Unique Code (standardize O and 0)
+  let uniqueCode = data["kode unik"] || data["uniqueCode"] || data["kode_unik"] || "";
+  uniqueCode = String(uniqueCode).trim().toUpperCase();
+
+  // 2. Is Active
+  let isActive = true;
+  const rawAktif = data["aktif"] !== undefined ? data["aktif"] : data["isActive"];
+  if (rawAktif !== undefined) {
+    if (typeof rawAktif === "boolean") {
+      isActive = rawAktif;
+    } else {
+      const normalized = String(rawAktif).trim().toUpperCase();
+      isActive = (normalized === "BENAR" || normalized === "TRUE" || normalized === "AKTIF" || normalized === "1");
+    }
+  }
+
+  // 3. School Name
+  const schoolName = data["nama sekolah"] || data["schoolName"] || data["school_name"] || "";
+
+  // 4. Subject / Topic Selection
+  const subject = data["subjek"] || data["subject"] || data["selectedSubject"] || "Bahasa Inggris";
+
+  // 5. Teacher Name
+  const teacherName = data["Nama guru"] || data["nama guru"] || data["teacherName"] || data["teacher_name"] || "";
+
+  // 6. Timestamp
+  const timestamp = data["cap waktu"] || data["timestamp"] || new Date().toLocaleString("id-ID");
+
+  // 7. Whatsapp Number / Phone
+  let whatsappNumber = data["Nomor WhatsApp"] || data["Nomor Whatsapp"] || data["whatsappNumber"] || data["phone"] || "";
+  whatsappNumber = String(whatsappNumber).trim();
+
+  // 8. Bukti Transfer
+  const buktiTransfer = data["bukti transfer"] || data["buktiTransfer"] || data["bukti_transfer"] || "";
+
+  return {
+    id: docId,
+    schoolName,
+    teacherName,
+    role: data["role"] || data["peran"] || "Guru Kelas",
+    subject,
+    selectedSubject: subject,
+    whatsappNumber,
+    phone: whatsappNumber,
+    uniqueCode,
+    isActive,
+    buktiTransfer,
+    timestamp
+  };
+}
+
+/**
+ * Formats standard React record into full hybrid Indonesian & English fields for Firestore.
+ */
+export function toFirestoreDoc(record: any): any {
+  const isAct = record.isActive !== false;
+  return {
+    // Indonesian fields (matches the user's live database screenshot)
+    "aktif": isAct ? "BENAR" : "SALAH",
+    "nama sekolah": record.schoolName || "",
+    "subjek": record.subject || record.selectedSubject || "Bahasa Inggris",
+    "Nama guru": record.teacherName || "",
+    "cap waktu": record.timestamp || new Date().toLocaleString("id-ID"),
+    "kode unik": normalizeCode(record.uniqueCode || ""),
+    "Nomor WhatsApp": record.whatsappNumber || record.phone || "",
+    "bukti transfer": record.buktiTransfer || "",
+
+    // English fields (keeps total code compatibility)
+    "id": record.id || "",
+    "schoolName": record.schoolName || "",
+    "teacherName": record.teacherName || "",
+    "role": record.role || "Guru Kelas",
+    "subject": record.subject || record.selectedSubject || "Bahasa Inggris",
+    "selectedSubject": record.subject || record.selectedSubject || "Bahasa Inggris",
+    "whatsappNumber": record.whatsappNumber || record.phone || "",
+    "phone": record.whatsappNumber || record.phone || "",
+    "uniqueCode": normalizeCode(record.uniqueCode || ""),
+    "isActive": isAct,
+    "buktiTransfer": record.buktiTransfer || "",
+    "timestamp": record.timestamp || new Date().toLocaleString("id-ID")
+  };
+}
+
 export default function App() {
   // 1. Initial State from localStorage or default TTU config
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>(() => {
@@ -273,8 +370,8 @@ export default function App() {
   };
 
   // Derive lock & admin properties
-  const matchedRequest = codeRequests.find(r => r.uniqueCode.trim().toUpperCase() === activeCode.trim().toUpperCase());
-  const isAdmin = activeCode.trim().toUpperCase() === "GP-PSR86";
+  const matchedRequest = codeRequests.find(r => normalizeCode(r.uniqueCode) === normalizeCode(activeCode));
+  const isAdmin = normalizeCode(activeCode) === normalizeCode("GP-PSR86");
   const pendingRequestsCount = codeRequests.filter(r => r && r.id !== "req-1" && r.id !== "req-2" && r.isActive === false).length;
   const messagesRequestsCount = codeRequests.filter(r => r && r.id !== "req-1" && r.id !== "req-2" && r.buktiTransfer && r.buktiTransfer !== "").length;
   const totalSignalsCount = codeRequests.filter(r => r && r.id !== "req-1" && r.id !== "req-2" && (r.isActive === false || (r.buktiTransfer && r.buktiTransfer !== ""))).length;
@@ -323,13 +420,14 @@ export default function App() {
   // Syncing with Firestore in Real-Time (Strictly filtering out legacy sample or simulation records)
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      collection(db, "codeRequests"),
+      collection(db, "Permintaan kode"),
       (snapshot) => {
         const list: any[] = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
-          if (doc.id !== "req-1" && doc.id !== "req-2" && data && data.uniqueCode !== "GP-RN00R") {
-            list.push(data);
+          const parsed = parseFirestoreDoc(doc.id, data);
+          if (parsed && doc.id !== "req-1" && doc.id !== "req-2" && parsed.uniqueCode !== "GP-RN00R") {
+            list.push(parsed);
           }
         });
         
@@ -707,15 +805,34 @@ export default function App() {
     }
 
     // Try finding in local list first
-    let req = codeRequests.find(r => r.uniqueCode.trim().toUpperCase() === val);
+    let req = codeRequests.find(r => normalizeCode(r.uniqueCode) === normalizeCode(val));
     
     // Fallback: Fetch directly from Firestore to guarantee absolute real-time accuracy and prevent any caching sync delays
     if (!req || req.isActive === false) {
       try {
-        const q = query(collection(db, "codeRequests"), where("uniqueCode", "==", val));
-        const qSnap = await getDocs(q);
+        const normalizedVal = normalizeCode(val);
+        // Query both fields "kode unik" and "uniqueCode" to support old and new formats cleanly
+        const qIndo = query(collection(db, "Permintaan kode"), where("kode unik", "==", val));
+        let qSnap = await getDocs(qIndo);
+        if (qSnap.empty) {
+          const qEng = query(collection(db, "Permintaan kode"), where("uniqueCode", "==", val));
+          qSnap = await getDocs(qEng);
+        }
+
+        // Search options with zero/O replaced in case they typed GP-PS012R but stored GP-PSO12R
+        if (qSnap.empty) {
+          const alternatedVal = val.includes("0") ? val.replace(/0/g, "O") : val.replace(/O/g, "0");
+          const qIndoAlt = query(collection(db, "Permintaan kode"), where("kode unik", "==", alternatedVal));
+          qSnap = await getDocs(qIndoAlt);
+          if (qSnap.empty) {
+            const qEngAlt = query(collection(db, "Permintaan kode"), where("uniqueCode", "==", alternatedVal));
+            qSnap = await getDocs(qEngAlt);
+          }
+        }
+
         if (!qSnap.empty) {
-          const liveData = qSnap.docs[0].data();
+          const liveDoc = qSnap.docs[0];
+          const liveData = parseFirestoreDoc(liveDoc.id, liveDoc.data());
           req = liveData;
           // Sync it into codeRequests state
           setCodeRequests(prev => {
@@ -1851,7 +1968,7 @@ service cloud.firestore {
                     ) : (
                       <div className="space-y-4">
                         {codeRequests.map((req: any) => {
-                          const isThisReqActive = activeCode.trim().toUpperCase() === req.uniqueCode.trim().toUpperCase();
+                          const isThisReqActive = normalizeCode(activeCode) === normalizeCode(req.uniqueCode);
                           const isActivated = req.isActive !== false; // defaults to active if undefined
                           return (
                             <div 
@@ -1983,7 +2100,7 @@ service cloud.firestore {
                                       setSuccessToast(`Kode ${req.uniqueCode} berhasil ${isActivated ? "DINONAKTIFKAN" : "DIAKTIFKAN"} oleh Admin!`);
                                       
                                       try {
-                                        await setDoc(doc(db, "codeRequests", req.id), updatedReq);
+                                        await setDoc(doc(db, "Permintaan kode", req.id), toFirestoreDoc(updatedReq));
                                       } catch (err) {
                                         console.error("Gagal memperbarui status di database:", err);
                                       }
@@ -2037,7 +2154,7 @@ service cloud.firestore {
                                             }
                                             
                                             try {
-                                              await deleteDoc(doc(db, "codeRequests", req.id));
+                                              await deleteDoc(doc(db, "Permintaan kode", req.id));
                                             } catch (err) {
                                               console.error("Gagal menghapus data di database:", err);
                                             }
@@ -2288,7 +2405,7 @@ service cloud.firestore {
                 try {
                   let existingReq = null;
                   if (trimmedCode) {
-                    existingReq = codeRequests.find(r => r.uniqueCode.trim().toUpperCase() === trimmedCode);
+                    existingReq = codeRequests.find(r => normalizeCode(r.uniqueCode) === normalizeCode(trimmedCode));
                   }
                   if (!existingReq && trimmedTeacher) {
                     existingReq = codeRequests.find(r => r.teacherName.trim().toLowerCase() === trimmedTeacher && !r.isActive);
@@ -2321,7 +2438,7 @@ service cloud.firestore {
                   }
                   
                   // Await the write to guarantee save to cloud database
-                  await setDoc(doc(db, "codeRequests", finalRecord.id), finalRecord);
+                  await setDoc(doc(db, "Permintaan kode", finalRecord.id), toFirestoreDoc(finalRecord));
 
                   // Update optimistic local state only after a successful cloud write
                   if (existingReq) {
@@ -2792,7 +2909,7 @@ service cloud.firestore {
                   setIsSubmittingWa(true);
                   try {
                     // Await Firestore Cloud write first to secure the record!
-                    await setDoc(doc(db, "codeRequests", newRecord.id), newRecord);
+                    await setDoc(doc(db, "Permintaan kode", newRecord.id), toFirestoreDoc(newRecord));
 
                     // 1b. Update real-time state
                     setCodeRequests((prev) => {
