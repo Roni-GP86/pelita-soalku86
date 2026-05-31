@@ -1,0 +1,10 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>
+  <rect width='512' height='512' rx='100' fill='#4f46e5'/>
+  <path d='M256 80c-60 0-110 50-110 110 0 35 15 65 38 86l12 11c15 14 25 34 25 55v18h70v-18c0-21 10-41 25-55l12-11c23-21 38-51 38-86 0-60-50-110-110-110zm35 320h-70c-10 0-18 8-18 18s8 18 18 18h70c10 0 18-8 18-18s-8-18-18-18zm-15 45h-40c-6 0-10 4-10 10s4 10 10 10h40c6 0 10-4 10-10s-4-10-10-10z' fill='#ffffff'/>
+  <circle cx='256' cy='190' r='10' fill='#fbbf24'/>
+  <line x1='256' y1='105' x2='256' y2='115' stroke='#fbbf24' stroke-width='6' stroke-linecap='round'/>
+  <line x1='171' y1='140' x2='180' y2='145' stroke='#fbbf24' stroke-width='6' stroke-linecap='round'/>
+  <line x1='141' y1='226' x2='151' y2='226' stroke='#fbbf24' stroke-width='6' stroke-linecap='round'/>
+  <line x1='341' y1='140' x2='332' y2='145' stroke='#fbbf24' stroke-width='6' stroke-linecap='round'/>
+  <line x1='371' y1='226' x2='361' y2='226' stroke='#fbbf24' stroke-width='6' stroke-linecap='round'/>
+</svg>

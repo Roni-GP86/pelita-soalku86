@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Helper functions
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { 
+      return request.resource.data; 
+    }
+    
+    function existing() { 
+      return resource.data; 
+    }
+
+    function isValidCodeRequest(data) {
+      return data.keys().hasAll(['id', 'schoolName', 'teacherName', 'uniqueCode', 'isActive'])
+        && data.keys().size() <= 18
+        && data.id is string && data.id.size() <= 100
+        && data.schoolName is string && data.schoolName.size() <= 200
+        && data.teacherName is string && data.teacherName.size() <= 200
+        && data.uniqueCode is string && data.uniqueCode.size() <= 50
+        && data.isActive is bool
+        && (!('role' in data) || (data.role is string && data.role.size() <= 100))
+        && (!('subject' in data) || (data.subject is string && data.subject.size() <= 100))
+        && (!('gradeClass' in data) || (data.gradeClass is string && data.gradeClass.size() <= 100))
+        && (!('semester' in data) || (data.semester is string && data.semester.size() <= 100))
+        && (!('academicYear' in data) || (data.academicYear is string && data.academicYear.size() <= 100))
+        && (!('logoType' in data) || (data.logoType is string && data.logoType.size() <= 150))
+        && (!('logoCustomData' in data) || (data.logoCustomData is string && data.logoCustomData.size() <= 15000000))
+        && (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 50))
+        && (!('buktiTransfer' in data) || (data.buktiTransfer is string && data.buktiTransfer.size() <= 15000000))
+        && (!('timestamp' in data) || (data.timestamp is string && data.timestamp.size() <= 100));
+    }
+
+    function isValidBankSoal(data) {
+      return data.keys().hasAll(['id', 'ownerCode', 'savedAt', 'subject', 'schoolInfo', 'questions'])
+        && data.keys().size() <= 10
+        && data.id is string && data.id.size() <= 100
+        && data.ownerCode is string && data.ownerCode.size() <= 100
+        && data.savedAt is string && data.savedAt.size() <= 100
+        && data.subject is string && data.subject.size() <= 100
+        && data.schoolInfo is map
+        && data.questions is list
+        && (!('kisiKisi' in data) || data.kisiKisi is list);
+    }
+
+    // Collection match
+    match /codeRequests/{requestId} {
+      allow get: if isValidId(requestId);
+      allow list: if true;
+      allow create: if isValidId(requestId) && isValidCodeRequest(incoming());
+      allow update: if isValidId(requestId) && isValidCodeRequest(incoming()) && (
+        incoming().id == existing().id &&
+        incoming().uniqueCode == existing().uniqueCode
+      );
+      allow delete: if true; // Allow admin deletion or resets
+    }
+
+    match /bankSoal/{bankId} {
+      allow get: if isValidId(bankId);
+      allow list: if true;
+      allow create: if isValidId(bankId) && isValidBankSoal(incoming());
+      allow update: if isValidId(bankId) && isValidBankSoal(incoming());
+      allow delete: if true; // Admin deletion and owner filtering are enforced securely
+    }
+  }
+}

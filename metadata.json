@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: Remix: ASISTEN GURU_PELITA SOAL",
+  "description": "Aplikasi untuk membuat kisi-kisi dan soal ujian secara otomatis berdasarkan Capaian Pembelajaran Kurikulum Merdeka untuk SD.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

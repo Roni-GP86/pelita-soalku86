@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "codeRequest": {
+      "title": "Code Request",
+      "description": "Unique access codes and requests for activation of Pelita Soal.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document ID"
+        },
+        "schoolName": {
+          "type": "string",
+          "description": "Name of school requesting code"
+        },
+        "teacherName": {
+          "type": "string",
+          "description": "Name of teacher"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of teacher (e.g. Guru Kelas)"
+        },
+        "subject": {
+          "type": "string",
+          "description": "Selected test subject"
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "description": "Teacher's WhatsApp contact number"
+        },
+        "uniqueCode": {
+          "type": "string",
+          "description": "The unique code issued (e.g., GP-PS012R)"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the code is activated or still pending transfer verification"
+        },
+        "buktiTransfer": {
+          "type": "string",
+          "description": "Base64 string representing uploaded transfer proof image, or empty"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Date and time representation of registration"
+        }
+      },
+      "required": ["id", "schoolName", "teacherName", "uniqueCode", "isActive"]
+    },
+    "bankSoal": {
+      "title": "Bank Soal",
+      "description": "Koleksi bank naskah soal ujian yang disimpan oleh guru.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document ID paket soal"
+        },
+        "ownerCode": {
+          "type": "string",
+          "description": "Kode lisensi unik pemilik naskah soal"
+        },
+        "savedAt": {
+          "type": "string",
+          "description": "Tanggal dan waktu penyimpanan"
+        },
+        "subject": {
+          "type": "string",
+          "description": "Mata pelajaran"
+        },
+        "schoolInfo": {
+          "type": "object",
+          "description": "Data sekolah terkait naskah soal"
+        },
+        "questions": {
+          "type": "array",
+          "description": "Daftar butir soal"
+        },
+        "kisiKisi": {
+          "type": "array",
+          "description": "Kisi-kisi terkait naskah soal"
+        }
+      },
+      "required": ["id", "ownerCode", "savedAt", "subject", "schoolInfo", "questions"]
+    }
+  },
+  "firestore": {
+    "codeRequests/{requestId}": {
+      "schema": "codeRequest",
+      "description": "List of active and requested licensing codes."
+    },
+    "bankSoal/{bankId}": {
+      "schema": "bankSoal",
+      "description": "Daftar naskah soal di Bank Soal."
+    }
+  }
+}
