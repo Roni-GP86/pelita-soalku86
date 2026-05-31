@@ -1235,7 +1235,7 @@ export default function App() {
                     KENDALA DATABASE CLOUD FIRESTORE TERDETEKSI
                   </span>
                   <h4 className="font-extrabold text-sm text-slate-100 uppercase tracking-tight">
-                    Sinkronisasi Data Bermasalah dengan Project Firebase Anda ({db.app.options.projectId || "roni-ps"})
+                    Sinkronisasi Data Bermasalah dengan Project Firebase Anda ({db.app.options.projectId || "pelita-soal"})
                   </h4>
                   <p className="text-xs text-slate-300 leading-relaxed font-semibold">
                     Aplikasi mendeteksi bahwa perangkat tidak dapat melakukan sinkronisasi dengan Cloud Database Firestore Anda. Pesan/bukti transfer dari pengguna tidak akan terbaca di perangkat Admin, dan sebaliknya, sampai masalah Aturan Keamanan (Rules) diselesaikan di Console Firebase Anda.
@@ -1249,7 +1249,7 @@ export default function App() {
                     
                     <p className="text-amber-400 font-bold mt-2">🛠️ Langkah Solusi (Sangat Mudah &amp; 100% Mengatasi Masalah):</p>
                     <ol className="list-decimal pl-4 space-y-1.5 text-slate-300 font-medium">
-                      <li>Buka <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-black underline hover:text-blue-300">Firebase Console</a> Anda dan pilih project <strong className="text-white">{db.app.options.projectId || "roni-ps"}</strong>.</li>
+                      <li>Buka <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-black underline hover:text-blue-300">Firebase Console</a> Anda dan pilih project <strong className="text-white">{db.app.options.projectId || "pelita-soal"}</strong>.</li>
                       <li>Di menu kiri, klik <strong className="text-white">Build &gt; Firestore Database</strong>. Jika database belum dibuat, klik <strong className="text-white">Create Database</strong>, pilih lokasi server Asia terdekat (misal <strong className="text-white">asia-southeast1</strong>), lalu buat dengan mode default.</li>
                       <li>Buka tab <strong className="text-white">Rules</strong> (Aturan Keamanan) di atas halaman Firestore Database.</li>
                       <li>Hapus semua isi Aturan Keamanan default di sana, ganti sepenuhnya dengan copy-paste Aturan Keamanan resmi di bawah ini:</li>
